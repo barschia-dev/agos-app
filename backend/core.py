@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 logger = logging.getLogger("agos")
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = client[os.environ["DB_NAME"]]
+APP_NAME = os.environ.get("APP_NAME", "agos")
 
 ENV = "live" if os.environ.get("CLERK_PUBLISHABLE_KEY", "").startswith("pk_live_") else "preview"
 USD_PHP = 58.0  # fixed demo conversion rate, not a market rate

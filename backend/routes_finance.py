@@ -273,7 +273,10 @@ async def download_file(file_id: str, ctx: dict = Depends(ws_ctx)):
     if not f:
         raise HTTPException(status_code=404, detail="Not found")
     await _get_expense(ctx, f["expense_id"])
-    data, _ = await storage.get_object(f["storage_path"])
+    try:
+        data, _ = await storage.get_object(f["storage_path"])
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Receipt file is not available")
     return Response(content=data, media_type=f["content_type"])
 
 

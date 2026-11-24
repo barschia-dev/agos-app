@@ -20,7 +20,6 @@ try:
 except ModuleNotFoundError:
     from clerk_auth import clerk_router
 from core import db, client  # noqa: E402
-import storage  # noqa: E402
 import routes_workspace, routes_finance, routes_payments, routes_insights, routes_public  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -106,7 +105,6 @@ app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.envi
 async def startup():
     app.state.index_task = asyncio.create_task(ensure_indexes())
     app.state.refresh_task = asyncio.create_task(routes_payments.refresh_pending_on_startup())
-    await asyncio.get_running_loop().run_in_executor(None, storage.safe_init)
 
 
 @app.on_event("shutdown")
