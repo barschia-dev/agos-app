@@ -2,7 +2,7 @@
 import json, os, sys, requests
 sys.path.insert(0, os.path.dirname(__file__))
 from dotenv import load_dotenv
-load_dotenv("/app/frontend/.env")
+load_dotenv()
 from smoke_test import bapi, token_for
 
 API = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") + "/api"

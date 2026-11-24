@@ -2,7 +2,7 @@ import os, json, time, urllib.request, urllib.parse
 import requests
 from dotenv import load_dotenv
 
-load_dotenv("/app/backend/.env")
+load_dotenv()
 SK = os.environ["CLERK_SECRET_KEY"]
 BASE = "http://localhost:8001/api"
 

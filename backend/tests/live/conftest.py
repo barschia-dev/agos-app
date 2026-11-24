@@ -5,8 +5,8 @@ import requests
 from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.dirname(__file__))
-load_dotenv("/app/frontend/.env")
-load_dotenv("/app/backend/.env")
+load_dotenv()
+load_dotenv()
 from smoke_test import token_for  # noqa: E402
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
