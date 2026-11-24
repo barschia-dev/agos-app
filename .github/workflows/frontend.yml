@@ -1,0 +1,32 @@
+name: Frontend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable Yarn
+        run: corepack enable
+      - name: Install dependencies
+        run: yarn install --non-interactive
+      - name: Build
+        env:
+          # Existing lint warnings do not fail the build.
+          CI: "false"
+          REACT_APP_BACKEND_URL: http://localhost:8001
+        run: yarn build
