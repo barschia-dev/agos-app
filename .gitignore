@@ -78,3 +78,4 @@ venv/
 credentials.json
 *.key
 .credentials
+!.env.example

@@ -6,7 +6,7 @@
 User choices: Clerk sign-in (Google + email/password); each signed-in user gets a private pre-populated Isla Digital Solutions demo workspace and can also create an empty real workspace; demo workspaces isolated; synthetic data and cards labeled simulated; Stellar Testnet records must be genuine and distinct from sample data; object storage for receipts. Platform admins: [set by environment], [set by environment], [set by environment] — kept private; separate ISLA Ventures Super Admin and AGOS Platform Admin roles; public uses a separate contact email.
 
 ## Architecture
-- Backend FastAPI (/backend): server.py (app, indexes, rate limit, safe errors), core.py (db, Clerk user → platform role, workspace context + role deps, X-Act-As personas for demo owners), routes_workspace.py, routes_finance.py (expenses, receipts, budgets, approvals, cards), routes_payments.py (payments + Stellar), routes_insights.py (dashboard, reports, reconciliation, CSV), routes_public.py (waitlist, admin), stellar_service.py (stellar-sdk 17, Horizon testnet, Fernet-encrypted secrets, asset registry), storage.py (object storage), seed.py (demo data).
+- Backend FastAPI (backend/app): see README for the layout; stellar-sdk 17, Horizon testnet, Fernet-encrypted secrets, asset registry), storage.py (object storage), seed.py (demo data).
 - Frontend React + Clerk (@clerk/react), shadcn, recharts. Public pages under src/pages/public, app under src/pages/app, shell in components/agos.
 - MongoDB collections: users, workspaces, members, expenses, budgets, cards, card_transactions, payments (stellar sub-doc), stellar_accounts, stellar_recipients, files, audit_logs, waitlist.
 
