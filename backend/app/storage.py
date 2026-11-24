@@ -2,7 +2,7 @@
 
 from bson import Binary
 
-from core import APP_NAME, db
+from app.database import db
 
 
 async def put_object(path: str, data: bytes, content_type: str) -> dict:

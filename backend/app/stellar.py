@@ -1,14 +1,17 @@
-import os
+"""Stellar Testnet access through Horizon."""
+
 import asyncio
 
 import requests
 from cryptography.fernet import Fernet
 from starlette.concurrency import run_in_threadpool
 from stellar_sdk import Account, Asset, Keypair, Network, Server, StrKey, TransactionBuilder, TransactionEnvelope
-from stellar_sdk.exceptions import NotFoundError, BadSignatureError
+from stellar_sdk.exceptions import BadSignatureError, NotFoundError
 
-HORIZON_URL = os.environ["STELLAR_HORIZON_URL"]
-NETWORK = os.environ["STELLAR_NETWORK"]
+from app import config
+
+HORIZON_URL = config.STELLAR_HORIZON_URL
+NETWORK = config.STELLAR_NETWORK
 PASSPHRASE = Network.TESTNET_NETWORK_PASSPHRASE
 FRIENDBOT_URL = "https://friendbot.stellar.org"
 EXPLORER = "https://stellar.expert/explorer/testnet"
@@ -20,7 +23,7 @@ ASSETS = {
     "XLM": {"code": "XLM", "issuer": None, "type": "native", "label": "Testnet XLM", "enabled": True},
 }
 
-_fernet = Fernet(os.environ["STELLAR_ENCRYPTION_KEY"].encode())
+_fernet = Fernet(config.STELLAR_ENCRYPTION_KEY.encode())
 server = Server(HORIZON_URL)
 
 
@@ -66,8 +69,14 @@ async def account_info(public_key: str) -> dict:
     acc = await _run(_account, public_key)
     if acc is None:
         return {"exists": False, "balances": []}
-    balances = [{"asset": "XLM" if b["asset_type"] == "native" else b.get("asset_code"),
-                 "issuer": b.get("asset_issuer"), "balance": b["balance"]} for b in acc["balances"]]
+    balances = [
+        {
+            "asset": "XLM" if b["asset_type"] == "native" else b.get("asset_code"),
+            "issuer": b.get("asset_issuer"),
+            "balance": b["balance"],
+        }
+        for b in acc["balances"]
+    ]
     return {"exists": True, "balances": balances, "sequence": acc["sequence"]}
 
 
@@ -78,14 +87,20 @@ def _payments(public_key: str) -> list:
         return []
     out = []
     for r in recs:
-        out.append({
-            "id": r["id"], "type": r["type"], "tx_hash": r["transaction_hash"], "created_at": r["created_at"],
-            "from": r.get("from") or r.get("funder") or r.get("source_account"),
-            "to": r.get("to") or r.get("account"),
-            "amount": r.get("amount") or r.get("starting_balance"),
-            "asset": "XLM" if r.get("asset_type", "native") == "native" else r.get("asset_code"),
-            "successful": r.get("transaction_successful", True), **tx_links(r["transaction_hash"]),
-        })
+        out.append(
+            {
+                "id": r["id"],
+                "type": r["type"],
+                "tx_hash": r["transaction_hash"],
+                "created_at": r["created_at"],
+                "from": r.get("from") or r.get("funder") or r.get("source_account"),
+                "to": r.get("to") or r.get("account"),
+                "amount": r.get("amount") or r.get("starting_balance"),
+                "asset": "XLM" if r.get("asset_type", "native") == "native" else r.get("asset_code"),
+                "successful": r.get("transaction_successful", True),
+                **tx_links(r["transaction_hash"]),
+            }
+        )
     return out
 
 
@@ -127,8 +142,12 @@ async def build_unsigned(source_pk: str, destination: str, amount: str, memo: st
 
 def challenge_tx(public_key: str, nonce: str):
     # Ownership proof only: sequence 0 makes it impossible to submit.
-    tx = (TransactionBuilder(Account(public_key, -1), network_passphrase=PASSPHRASE, base_fee=100)
-          .append_manage_data_op("agos_auth", nonce.encode()).set_timeout(300).build())
+    tx = (
+        TransactionBuilder(Account(public_key, -1), network_passphrase=PASSPHRASE, base_fee=100)
+        .append_manage_data_op("agos_auth", nonce.encode())
+        .set_timeout(300)
+        .build()
+    )
     return tx.hash_hex(), tx.to_xdr()
 
 
@@ -158,10 +177,22 @@ def _get_tx(tx_hash: str):
     except NotFoundError:
         return None
     ops = server.operations().for_transaction(tx_hash).call()["_embedded"]["records"]
-    return {"successful": tx["successful"], "ledger": tx["ledger"], "created_at": tx["created_at"],
-            "source": tx["source_account"], "fee_charged": tx.get("fee_charged"), "memo": tx.get("memo"),
-            "operations": [{"type": o["type"], "to": o.get("to") or o.get("account"),
-                            "amount": o.get("amount") or o.get("starting_balance")} for o in ops]}
+    return {
+        "successful": tx["successful"],
+        "ledger": tx["ledger"],
+        "created_at": tx["created_at"],
+        "source": tx["source_account"],
+        "fee_charged": tx.get("fee_charged"),
+        "memo": tx.get("memo"),
+        "operations": [
+            {
+                "type": o["type"],
+                "to": o.get("to") or o.get("account"),
+                "amount": o.get("amount") or o.get("starting_balance"),
+            }
+            for o in ops
+        ],
+    }
 
 
 async def get_transaction(tx_hash: str):

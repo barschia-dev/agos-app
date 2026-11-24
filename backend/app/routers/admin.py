@@ -1,42 +1,23 @@
+"""Platform administration."""
+
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field
 
-from core import db, new_id, now_iso, require_platform, ENV
+from app.config import ENV
+from app.database import NO_ID, db
+from app.dependencies import require_platform
 
 router = APIRouter(prefix="/api")
-P = {"_id": 0}
+
+
 ADMINS = ("super_admin", "platform_admin")
-
-
-class WaitlistIn(BaseModel):
-    name: str = Field(min_length=2, max_length=80)
-    business_name: str = Field(min_length=2, max_length=120)
-    email: EmailStr
-    category: str = Field(min_length=2, max_length=60)
-    challenge: str = Field(min_length=3, max_length=1000)
-    consent: bool
-    website: Optional[str] = Field(None, max_length=200)  # honeypot
-
-
-@router.post("/waitlist")
-async def join_waitlist(body: WaitlistIn):
-    if not body.consent:
-        raise HTTPException(status_code=422, detail="Consent is required to join the waitlist")
-    if body.website:
-        return {"ok": True}
-    email = body.email.lower()
-    if await db.waitlist.find_one({"email": email}):
-        return {"ok": True, "already": True}
-    await db.waitlist.insert_one({"id": new_id(), **body.model_dump(exclude={"website", "email"}), "email": email,
-                                  "status": "new", "notes": "", "created_at": now_iso()})
-    return {"ok": True}
 
 
 @router.get("/admin/waitlist")
 async def admin_waitlist(user: dict = Depends(require_platform(*ADMINS))):
-    return await db.waitlist.find({}, P).sort("created_at", -1).to_list(5000)
+    return await db.waitlist.find({}, NO_ID).sort("created_at", -1).to_list(5000)
 
 
 class WaitlistPatch(BaseModel):

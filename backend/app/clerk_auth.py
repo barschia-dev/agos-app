@@ -2,7 +2,6 @@
 are set: /api/clerk/config for the frontend, the /api/__clerk production relay
 (zero DNS per app), and the require_user dependency for protected routes."""
 
-import os
 from functools import lru_cache
 
 import jwt
@@ -12,31 +11,42 @@ from requests.adapters import HTTPAdapter
 from starlette.concurrency import run_in_threadpool
 from urllib3.util.retry import Retry
 
+from app import config
+
 CLERK_FRONTEND_API = "https://frontend-api.clerk.dev"
 CLERK_BACKEND_API = "https://api.clerk.com/v1"
 PROXY_PATH = "/api/__clerk"
 
 # Per-hop headers are never relayed; requests decodes the body, so its encoding goes too.
 _HOP_HEADERS = {
-    "host", "connection", "keep-alive", "content-length", "transfer-encoding",
-    "te", "trailer", "upgrade", "proxy-authorization", "proxy-authenticate",
+    "host",
+    "connection",
+    "keep-alive",
+    "content-length",
+    "transfer-encoding",
+    "te",
+    "trailer",
+    "upgrade",
+    "proxy-authorization",
+    "proxy-authenticate",
     "content-encoding",
 }
 
 clerk_router = APIRouter(prefix="/api")
 _http = requests.Session()
 # Clerk's edge closes idle keep-alive connections; retry idempotent calls on a dropped one.
-_retry = Retry(total=2, connect=2, read=2, status=0, backoff_factor=0.1,
-               allowed_methods=frozenset({"GET", "HEAD", "OPTIONS"}))
+_retry = Retry(
+    total=2, connect=2, read=2, status=0, backoff_factor=0.1, allowed_methods=frozenset({"GET", "HEAD", "OPTIONS"})
+)
 _http.mount("https://", HTTPAdapter(pool_maxsize=40, max_retries=_retry))  # matches the threadpool size
 
 
 def _publishable_key() -> str:
-    return os.environ.get("CLERK_PUBLISHABLE_KEY", "")
+    return config.CLERK_PUBLISHABLE_KEY
 
 
 def _secret_key() -> str:
-    return os.environ.get("CLERK_SECRET_KEY", "")
+    return config.CLERK_SECRET_KEY
 
 
 def _is_production() -> bool:

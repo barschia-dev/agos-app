@@ -1,3 +1,5 @@
+"""One-page PDF summary of a confirmed payment."""
+
 import io
 from datetime import datetime
 
@@ -10,7 +12,9 @@ from reportlab.lib.utils import simpleSplit
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
-NAVY, INK, MUTED, TEAL, LINE, AMBER = (HexColor(c) for c in ("#14263d", "#142033", "#5b6676", "#1f6f7f", "#dfe4ea", "#8a5a00"))
+NAVY, INK, MUTED, TEAL, LINE, AMBER = (
+    HexColor(c) for c in ("#14263d", "#142033", "#5b6676", "#1f6f7f", "#dfe4ea", "#8a5a00")
+)
 W, H = A4
 M = 42
 
@@ -50,7 +54,7 @@ def _kv(c, x, y, key, value, width, mono=False):
     text, avail = str(value), width - 95
     if mono:
         n = max(10, int(avail / (0.6 * 8.5)))
-        lines = [text[i:i + n] for i in range(0, len(text), n)] or [""]
+        lines = [text[i : i + n] for i in range(0, len(text), n)] or [""]
     else:
         lines = simpleSplit(text, font, 8.5, avail)
     for i, ln in enumerate(lines):
@@ -66,7 +70,9 @@ def _qr(c, url, x, y, size):
     renderPDF.draw(d, c, x, y)
 
 
-def build_pitch_pdf(ws: dict, kpis: dict, payment: dict, expense: dict | None, duration: int | None, explorer: str) -> bytes:
+def build_pitch_pdf(
+    ws: dict, kpis: dict, payment: dict, expense: dict | None, duration: int | None, explorer: str
+) -> bytes:
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     c.setTitle("AGOS Pitch Summary")
@@ -94,9 +100,15 @@ def build_pitch_pdf(ws: dict, kpis: dict, payment: dict, expense: dict | None, d
     y = H - 150
     _label(c, M, y, "Business snapshot · synthetic demo data")
     y -= 14
-    boxes = [("Recorded expenses", _php(kpis["total_recorded"])), ("This month", _php(kpis["month_spend"])),
-             ("Budget utilization", f"{round(kpis['budget_used'] / kpis['budget_total'] * 100) if kpis['budget_total'] else 0}%"),
-             ("Pending approvals", str(kpis["pending_approvals"]))]
+    boxes = [
+        ("Recorded expenses", _php(kpis["total_recorded"])),
+        ("This month", _php(kpis["month_spend"])),
+        (
+            "Budget utilization",
+            f"{round(kpis['budget_used'] / kpis['budget_total'] * 100) if kpis['budget_total'] else 0}%",
+        ),
+        ("Pending approvals", str(kpis["pending_approvals"])),
+    ]
     bw = (W - 2 * M - 30) / 4
     for i, (k, val) in enumerate(boxes):
         bx = M + i * (bw + 10)
@@ -115,15 +127,33 @@ def build_pitch_pdf(ws: dict, kpis: dict, payment: dict, expense: dict | None, d
     steps = []
     if expense:
         appr = next((h for h in reversed(expense["history"]) if h["status"] == "approved"), None)
-        steps.append(("Expense submitted", f"{expense['merchant']} · {_php(expense['amount_php'])} · {expense['member_name']} ({expense['department']})", _dt(expense["history"][0]["at"])))
+        steps.append(
+            (
+                "Expense submitted",
+                f"{expense['merchant']} · {_php(expense['amount_php'])} · {expense['member_name']} ({expense['department']})",
+                _dt(expense["history"][0]["at"]),
+            )
+        )
         if appr:
-            steps.append(("Expense approved", f"by {appr['actor_name']} · counted in {expense['department']} budget", _dt(appr["at"])))
+            steps.append(
+                (
+                    "Expense approved",
+                    f"by {appr['actor_name']} · counted in {expense['department']} budget",
+                    _dt(appr["at"]),
+                )
+            )
     reqd = payment["history"][0]
     steps.append(("Payment requested", f"{payment['amount']:g} XLM to {payment['recipient_name']}", _dt(reqd["at"])))
     papp = next((h for h in payment["history"] if h["status"] == "approved"), None)
     if papp:
         steps.append(("Payment approved", f"by {papp['actor_name']}", _dt(papp["at"])))
-    steps.append(("Signed & submitted", "AGOS-managed key" if st.get("signing") != "wallet" else "Signed in connected Freighter wallet", _dt(st.get("submitted_at"))))
+    steps.append(
+        (
+            "Signed & submitted",
+            "AGOS-managed key" if st.get("signing") != "wallet" else "Signed in connected Freighter wallet",
+            _dt(st.get("submitted_at")),
+        )
+    )
     steps.append(("Confirmed on ledger", f"Stellar Testnet ledger {st.get('ledger')}", _dt(st.get("confirmed_at"))))
     for i, (t, d, when) in enumerate(steps):
         c.setFillColor(TEAL)
@@ -136,7 +166,9 @@ def build_pitch_pdf(ws: dict, kpis: dict, payment: dict, expense: dict | None, d
         c.drawString(M + 18, y, t)
         c.setFont("Helvetica", 8.5)
         c.setFillColor(MUTED)
-        c.drawString(M + 140, y, _fit(d, "Helvetica", 8.5, W - M - stringWidth(when, "Helvetica", 8.5) - 12 - (M + 140)))
+        c.drawString(
+            M + 140, y, _fit(d, "Helvetica", 8.5, W - M - stringWidth(when, "Helvetica", 8.5) - 12 - (M + 140))
+        )
         c.drawRightString(W - M, y, when)
         y -= 26
     y -= 8
@@ -154,11 +186,20 @@ def build_pitch_pdf(ws: dict, kpis: dict, payment: dict, expense: dict | None, d
     c.drawCentredString(W - M - qr / 2 - 14, y - qr - 26, "Scan to verify on stellar.expert")
     inner = W - 2 * M - qr - 44
     yy = y - 18
-    for k, val, mono in [("Transaction hash", st["tx_hash"], True), ("Ledger", st.get("ledger"), False),
-                         ("Network", "Stellar Testnet", False), ("Amount", f"{st.get('amount')} XLM (native)", False),
-                         ("Source", st.get("source"), True), ("Destination", st.get("destination"), True),
-                         ("Confirmed", _dt(st.get("confirmed_at")), False),
-                         ("Verified via Horizon", f"{_dt(v.get('checked_at'))} · {'successful, matches the approved request' if v.get('successful') and v.get('matches_request') else 'see explorer'}", False)]:
+    for k, val, mono in [
+        ("Transaction hash", st["tx_hash"], True),
+        ("Ledger", st.get("ledger"), False),
+        ("Network", "Stellar Testnet", False),
+        ("Amount", f"{st.get('amount')} XLM (native)", False),
+        ("Source", st.get("source"), True),
+        ("Destination", st.get("destination"), True),
+        ("Confirmed", _dt(st.get("confirmed_at")), False),
+        (
+            "Verified via Horizon",
+            f"{_dt(v.get('checked_at'))} · {'successful, matches the approved request' if v.get('successful') and v.get('matches_request') else 'see explorer'}",
+            False,
+        ),
+    ]:
         yy = _kv(c, M + 14, yy, k, val, inner, mono)
     y = box_top - 208
     c.setFont("Helvetica", 7.5)
@@ -167,11 +208,13 @@ def build_pitch_pdf(ws: dict, kpis: dict, payment: dict, expense: dict | None, d
     c.linkURL(explorer, (M, y - 2, W - M, y + 9))
 
     y -= 26
-    notes = ("Business figures, employees and cards are synthetic demo data; cards and domestic payments are simulated. "
-             "The Stellar transaction is a genuine Testnet record; Testnet XLM has no monetary value, and ledger confirmation does not prove "
-             "fiat delivery to a beneficiary. AGOS is an MVP in development under ISLA Ventures Inc. and is not a bank, lender, payment "
-             "institution, electronic money issuer or virtual asset service provider. AGOS is not affiliated with or endorsed by the Stellar "
-             "Development Foundation. Roadmap timelines are targets, not commitments.")
+    notes = (
+        "Business figures, employees and cards are synthetic demo data; cards and domestic payments are simulated. "
+        "The Stellar transaction is a genuine Testnet record; Testnet XLM has no monetary value, and ledger confirmation does not prove "
+        "fiat delivery to a beneficiary. AGOS is an MVP in development under ISLA Ventures Inc. and is not a bank, lender, payment "
+        "institution, electronic money issuer or virtual asset service provider. AGOS is not affiliated with or endorsed by the Stellar "
+        "Development Foundation. Roadmap timelines are targets, not commitments."
+    )
     lines = simpleSplit(notes, "Helvetica", 7.3, W - 2 * M)
     y = 34 + len(lines) * 10
     c.setStrokeColor(LINE)

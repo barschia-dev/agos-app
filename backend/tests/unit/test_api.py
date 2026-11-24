@@ -5,8 +5,14 @@ DEST = "GAIH3ULLFQ4DGSECF2AR555KZ4KNDGEKN4AFI4SU2M7B43MGK3QJZNSR"
 
 
 def new_payment(client, headers, **over):
-    body = {"type": "international", "recipient_name": "Vendor", "destination_address": DEST,
-            "amount": "5", "purpose": "Invoice", **over}
+    body = {
+        "type": "international",
+        "recipient_name": "Vendor",
+        "destination_address": DEST,
+        "amount": "5",
+        "purpose": "Invoice",
+        **over,
+    }
     r = client.post("/api/payments", headers=headers, json=body)
     assert r.status_code == 200, r.text
     return r.json()
@@ -21,8 +27,9 @@ def approved(client, ws):
 
 
 def submit(client, ws, pid, key="key-12345678"):
-    return client.post(f"/api/payments/{pid}/stellar/submit", headers=ws.owner,
-                       json={"confirm": True, "idempotency_key": key})
+    return client.post(
+        f"/api/payments/{pid}/stellar/submit", headers=ws.owner, json={"confirm": True, "idempotency_key": key}
+    )
 
 
 def test_health(client):
@@ -30,9 +37,27 @@ def test_health(client):
 
 
 def test_every_read_endpoint_responds(client, ws):
-    for path in ("me", "workspace", "team", "audit", "roles", "expenses", "expenses/export", "budgets", "approvals",
-                 "cards", "payments", "dashboard", "reports", "reports/export/monthly", "reports/export/payments",
-                 "reconciliation", "reconciliation/export", "stellar/account", "stellar/transactions"):
+    for path in (
+        "me",
+        "workspace",
+        "team",
+        "audit",
+        "roles",
+        "expenses",
+        "expenses/export",
+        "budgets",
+        "approvals",
+        "cards",
+        "payments",
+        "dashboard",
+        "reports",
+        "reports/export/monthly",
+        "reports/export/payments",
+        "reconciliation",
+        "reconciliation/export",
+        "stellar/account",
+        "stellar/transactions",
+    ):
         r = client.get(f"/api/{path}", headers=ws.owner)
         assert r.status_code == 200, (path, r.text)
 
@@ -97,8 +122,11 @@ def test_budget_usage_and_permissions(client, ws):
 
 
 def test_card_simulation(client, ws):
-    card = client.post("/api/cards", headers=ws.fm, json={
-        "member_id": ws.members["employee"], "nickname": "Test", "spending_limit": 100}).json()
+    card = client.post(
+        "/api/cards",
+        headers=ws.fm,
+        json={"member_id": ws.members["employee"], "nickname": "Test", "spending_limit": 100},
+    ).json()
     url = f"/api/cards/{card['id']}"
     spend = {"merchant": "M", "category": "C", "amount": 80}
     assert client.post(f"{url}/simulate", headers=ws.employee, json=spend).json()["status"] == "posted"
@@ -108,12 +136,26 @@ def test_card_simulation(client, ws):
     assert len(client.get(f"{url}/transactions", headers=ws.employee).json()) == 2
 
 
-@pytest.mark.parametrize("over,code", [({"amount": "0"}, 422), ({"amount": "x"}, 422), ({"amount": "1.12345678"}, 422),
-                                       ({"amount": "1001"}, 422), ({"destination_address": "bad"}, 422),
-                                       ({"asset_code": "USDC"}, 422)])
+@pytest.mark.parametrize(
+    "over,code",
+    [
+        ({"amount": "0"}, 422),
+        ({"amount": "x"}, 422),
+        ({"amount": "1.12345678"}, 422),
+        ({"amount": "1001"}, 422),
+        ({"destination_address": "bad"}, 422),
+        ({"asset_code": "USDC"}, 422),
+    ],
+)
 def test_payment_validation(client, ws, over, code):
-    body = {"type": "international", "recipient_name": "Vendor", "destination_address": DEST, "amount": "5",
-            "purpose": "Invoice", **over}
+    body = {
+        "type": "international",
+        "recipient_name": "Vendor",
+        "destination_address": DEST,
+        "amount": "5",
+        "purpose": "Invoice",
+        **over,
+    }
     assert client.post("/api/payments", headers=ws.owner, json=body).status_code == code
 
 
@@ -167,8 +209,11 @@ def test_wallet_connection_requires_ownership(client, ws):
     def connect(signer):
         env = TransactionEnvelope.from_xdr(ch["xdr"], ch["network_passphrase"])
         env.sign(signer)
-        return client.post("/api/stellar/wallet/connect", headers=ws.owner,
-                           json={"challenge_id": ch["challenge_id"], "signed_xdr": env.to_xdr()})
+        return client.post(
+            "/api/stellar/wallet/connect",
+            headers=ws.owner,
+            json={"challenge_id": ch["challenge_id"], "signed_xdr": env.to_xdr()},
+        )
 
     assert connect(stranger).status_code == 422
     assert connect(kp).json() == {"public_key": kp.public_key, "mode": "wallet"}
@@ -182,7 +227,13 @@ def test_last_owner_cannot_be_removed(client, ws):
 
 
 def test_waitlist_and_admin(client):
-    body = {"name": "Ana", "business_name": "Biz", "email": "a@example.com", "category": "Retail", "challenge": "cash flow"}
+    body = {
+        "name": "Ana",
+        "business_name": "Biz",
+        "email": "a@example.com",
+        "category": "Retail",
+        "challenge": "cash flow",
+    }
     assert client.post("/api/waitlist", json={**body, "consent": False}).status_code == 422
     assert client.post("/api/waitlist", json={**body, "consent": True}).json() == {"ok": True}
     assert client.post("/api/waitlist", json={**body, "consent": True}).json()["already"]
@@ -190,3 +241,24 @@ def test_waitlist_and_admin(client):
     client.sign_in("super")
     assert len(client.get("/api/admin/waitlist").json()) == 1
     assert client.get("/api/admin/overview").status_code == 200
+
+
+def test_receipt_round_trip(client, ws):
+    e = client.post("/api/expenses", headers=ws.employee, json=EXPENSE).json()
+    url = f"/api/expenses/{e['id']}/receipts"
+    bad = client.post(url, headers=ws.employee, files={"file": ("a.txt", b"x", "text/plain")})
+    assert bad.status_code == 415
+    big = client.post(url, headers=ws.employee, files={"file": ("a.png", b"x" * (10 * 1024 * 1024 + 1), "image/png")})
+    assert big.status_code == 413
+    rec = client.post(url, headers=ws.employee, files={"file": ("a.png", b"png-bytes", "image/png")}).json()
+    got = client.get(f"/api/files/{rec['id']}", headers=ws.employee)
+    assert got.content == b"png-bytes" and got.headers["content-type"] == "image/png"
+    client.sign_in("u2")
+    other = {"X-Workspace-Id": client.post("/api/workspaces/demo").json()["id"]}
+    assert client.get(f"/api/files/{rec['id']}", headers=other).status_code == 404
+
+
+def test_csv_exports_neutralize_formulas(client, ws):
+    client.post("/api/expenses", headers=ws.owner, json={**EXPENSE, "merchant": "=1+1"})
+    text = client.get("/api/expenses/export", headers=ws.owner).text
+    assert "'=1+1" in text and ",=1+1" not in text
